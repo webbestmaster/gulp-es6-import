@@ -67,6 +67,7 @@ function readFile(path) {
 		fs.readFile(path, 'utf-8', function (err, data) {
 
 			if (err) {
+				console.error('Can not read file ', path);
 				return reject(err);
 			}
 
