@@ -25,10 +25,10 @@
   },
   "license": "MIT",
   "dependencies": {
-    "gulp-util": "^3.0.3",
-    "through2": "^0.6.1"
   },
   "devDependencies": {
+    "gulp-util": "^3.0.3",
+    "through2": "^0.6.1"
 
   },
   "maintainers": [
