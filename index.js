@@ -5,11 +5,17 @@
 /*global require */
 
 var through = require('through2'),
-		gutil = require('gulp-util'),
-		path = require('path'),
-		fs = require('fs');
+	gutil = require('gulp-util'),
+	path = require('path'),
+	fs = require('fs');
 
 var PLUGIN_NAME = 'gulp-es6-import';
+
+function checkPath(filesDataArr, resolvedPathToFile) {
+	return !filesDataArr.every(function (data) {
+		return data.path !== resolvedPathToFile;
+	});
+}
 
 function walk(dir, done) {
 
@@ -68,6 +74,7 @@ function readFile(path) {
 
 			if (err) {
 				console.error('Can not read file ', path);
+				throw new Error('Can not read file ' + path);
 				return reject(err);
 			}
 
@@ -91,98 +98,105 @@ module.exports = function (opt) {
 		}
 
 		getFileMap(file)
-				.then(function (paths) {
+			.then(function (paths) {
 
-					var promises = [];
+				var promises = [];
 
-					paths.forEach(function (path) {
-						promises.push(readFile(path));
-					});
+				paths.forEach(function (path) {
+					promises.push(readFile(path));
+				});
 
-					return Promise.all(promises);
+				return Promise.all(promises);
 
-				})
-				.then(function (filesDataArr) {
+			})
+			.then(function (filesDataArr) {
 
-					var filesDataHash = {},
-							result = [],
-							replaceCwd = new RegExp(file.cwd, 'gi'),
-							globalImportPath = 'gi' + (Math.random() + '').slice(2, 6);
+				var filesDataHash = {},
+					result = [],
+					replaceCwd = new RegExp(file.cwd, 'gi'),
+					globalImportPath = 'gi' + (Math.random() + '').slice(2, 6);
 
-					filesDataArr.forEach(function (fileData) {
+				filesDataArr.forEach(function (fileData) {
 
-						filesDataHash[fileData.path] = fileData.data;
-
-					});
-
-					function getDependencies(resolvedPathToFile) {
-
-						var fileContent = filesDataHash[resolvedPathToFile],
-								paths;
-
-						paths = fileContent.match(/import\s+\S+\s+from\s+\'\S+?\'\;/gi);
-
-						if (!paths) {
-							return false;
-						}
-
-						return paths.map(function (pathToFile) {
-
-							pathToFile = pathToFile.replace(/(import\s+\S+\s+from\s+\')|(\'\;)/g, '') + '.js';
-
-							var dirName = path.dirname(resolvedPathToFile);
-
-							return path.resolve(dirName, pathToFile);
-
-						});
-
-					}
-
-					function readFileForImport(resolvedPathToFile) {
-
-						var dependencies = getDependencies(resolvedPathToFile);
-
-						if ( dependencies ) {
-
-							dependencies.forEach(function (dependence) {
-								readFileForImport(dependence);
-							});
-
-						}
-
-						return result.indexOf(resolvedPathToFile) === -1 && result.push(resolvedPathToFile);
-
-					}
-
-					readFileForImport(filesDataArr[0].path);
-
-					result = result.map(function (pathToFile) {
-
-						var fileContent = filesDataHash[pathToFile];
-
-						fileContent = fileContent.replace(/(import)\s+(\S+)\s+(from)\s+\'(\S+?)\'\;/gi, function (match, p1, p2, p3, p4, offset, string) {
-
-							return ['var ' + p2 + ' = ' + globalImportPath + '[\'' + path.resolve(path.dirname(pathToFile), p4) + '.js\'] || window.' + p2 + ';'].join('');
-
-						});
-
-						fileContent = fileContent.replace(/(export\s+default\s+)(\S+)/gi, function (match, p1, p2, offset, string) {
-
-							return globalImportPath + '[\'' + pathToFile + '\'] = ' + p2;
-
-						});
-
-						fileContent = fileContent.replace(replaceCwd, '');
-
-						return '(function () {\n' + fileContent + '\n}());\n';
-
-					});
-
-					file.contents = new Buffer( '(function (' + globalImportPath + ') {\n' + result.join('') + '\n}({}));\n' );
-
-					callback(null, file);
+					filesDataHash[fileData.path] = fileData.data;
 
 				});
+
+				function getDependencies(resolvedPathToFile) {
+
+					var fileContent = filesDataHash[resolvedPathToFile],
+						paths;
+
+					paths = fileContent.match(/import\s+\S+\s+from\s+\'\S+?\'\;/gi);
+
+					if (!paths) {
+						return false;
+					}
+
+					return paths.map(function (pathToFile) {
+
+						pathToFile = pathToFile.replace(/(import\s+\S+\s+from\s+\')|(\'\;)/g, '') + '.js';
+
+						var dirName = path.dirname(resolvedPathToFile);
+
+						return path.resolve(dirName, pathToFile);
+
+					});
+
+				}
+
+				function readFileForImport(resolvedPathToFile) {
+
+					// check for file exist
+					if (!checkPath(filesDataArr, resolvedPathToFile)) {
+						console.error('File is not exist' + resolvedPathToFile);
+						throw new Error('File is not exist ' + resolvedPathToFile);
+						return false;
+					}
+
+					var dependencies = getDependencies(resolvedPathToFile);
+
+					if (dependencies) {
+
+						dependencies.forEach(function (dependence) {
+							readFileForImport(dependence);
+						});
+
+					}
+
+					return result.indexOf(resolvedPathToFile) === -1 && result.push(resolvedPathToFile);
+
+				}
+
+				readFileForImport(filesDataArr[0].path);
+
+				result = result.map(function (pathToFile) {
+
+					var fileContent = filesDataHash[pathToFile];
+
+					fileContent = fileContent.replace(/(import)\s+(\S+)\s+(from)\s+\'(\S+?)\'\;/gi, function (match, p1, p2, p3, p4, offset, string) {
+
+						return ['var ' + p2 + ' = ' + globalImportPath + '[\'' + path.resolve(path.dirname(pathToFile), p4) + '.js\'] || window.' + p2 + ';'].join('');
+
+					});
+
+					fileContent = fileContent.replace(/(export\s+default\s+)(\S+)/gi, function (match, p1, p2, offset, string) {
+
+						return globalImportPath + '[\'' + pathToFile + '\'] = ' + p2;
+
+					});
+
+					fileContent = fileContent.replace(replaceCwd, '');
+
+					return '(function () {\n' + fileContent + '\n}());\n';
+
+				});
+
+				file.contents = new Buffer('(function (' + globalImportPath + ') {\n' + result.join('') + '\n}({}));\n');
+
+				callback(null, file);
+
+			});
 
 	}
 

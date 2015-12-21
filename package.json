@@ -1,6 +1,6 @@
 {
   "name": "gulp-es6-import",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "gulp-es6-import",
   "main": "index.js",
   "repository": {
