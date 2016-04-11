@@ -1,6 +1,6 @@
 {
   "name": "gulp-es6-import",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "gulp-es6-import",
   "main": "index.js",
   "repository": {
@@ -24,11 +24,11 @@
     "node": ">=0.10.0"
   },
   "license": "MIT",
-  "dependencies": {},
-  "devDependencies": {
-    "gulp-util": "^3.0.3",
-    "through2": "^0.6.1"
+  "dependencies": {
+    "through2": "^0.6.1",
+    "gulp-util": "^3.0.3"
   },
+  "devDependencies": {},
   "maintainers": [
     {
       "name": "webbestmaster",
